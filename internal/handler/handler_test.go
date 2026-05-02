@@ -132,6 +132,58 @@ func TestHandlePostVideo(t *testing.T) {
 	}
 }
 
+func TestHandleAuthSuccess(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	handler := New(mockContentService{}, logger, Config{BasicUsername: "admin", BasicPassword: "secret"})
+
+	response, err := handler.Handle(context.Background(), events.LambdaFunctionURLRequest{
+		RawPath: "/auth",
+		Headers: map[string]string{
+			"Authorization": "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:secret")),
+		},
+		RequestContext: events.LambdaFunctionURLRequestContext{
+			RequestID: "req-auth-1",
+			HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
+				Method: http.MethodGet,
+				Path:   "/auth",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status: %d", response.StatusCode)
+	}
+}
+
+func TestHandleAuthUnauthorized(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	handler := New(mockContentService{}, logger, Config{BasicUsername: "admin", BasicPassword: "secret"})
+
+	response, err := handler.Handle(context.Background(), events.LambdaFunctionURLRequest{
+		RawPath: "/auth",
+		Headers: map[string]string{
+			"Authorization": "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:wrong")),
+		},
+		RequestContext: events.LambdaFunctionURLRequestContext{
+			RequestID: "req-auth-2",
+			HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
+				Method: http.MethodGet,
+				Path:   "/auth",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unexpected status: %d", response.StatusCode)
+	}
+}
+
 func stringPtr(value string) *string {
 	return &value
 }

@@ -72,6 +72,19 @@ func (h *Handler) Handle(ctx context.Context, req events.LambdaFunctionURLReques
 
 	h.logger.Info("incoming request", "endpoint", path, "method", method, "request_body", req.Body)
 
+	if strings.Trim(path, "/") == "auth" {
+		if method == http.MethodOptions {
+			return h.emptyResponse(req, requestID, http.StatusNoContent), nil
+		}
+		if method != http.MethodGet {
+			return h.errorResponse(req, requestID, domain.NotFound("route not found")), nil
+		}
+		if err := h.requireBasicAuth(req.Headers); err != nil {
+			return h.errorResponse(req, requestID, err), nil
+		}
+		return h.jsonResponse(req, requestID, http.StatusOK, map[string]any{"authenticated": true}), nil
+	}
+
 	contentType, id, hasID, ok := parseRoute(path)
 	if !ok {
 		return h.errorResponse(req, requestID, domain.NotFound("route not found")), nil
